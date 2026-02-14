@@ -1,0 +1,13 @@
+{
+  "name": "generete-referencia",
+  "version": "1.0.0",
+  "description": "Menú interactivo para crear órdenes en API Dynamicore (Conekta)",
+  "main": "crear_orden.js",
+  "scripts": {
+    "start": "node server.js",
+    "orden": "node crear_orden.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

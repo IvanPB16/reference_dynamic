@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crear orden – Conekta / Dynamicore</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4f;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-hover: #79b8ff;
+      --success: #3fb950;
+      --error: #f85149;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem 0;
+      color: var(--text);
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+    input::placeholder { color: var(--muted); }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .row input { margin-bottom: 0; }
+    .full { grid-column: 1 / -1; }
+    button {
+      width: 100%;
+      padding: 0.65rem 1rem;
+      font-size: 1rem;
+      font-weight: 500;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 0.25rem;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    #result {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+    #result.show { display: block; }
+    #result.success { background: rgba(63, 185, 80, 0.15); border: 1px solid var(--success); color: #7ee787; }
+    #result.error { background: rgba(248, 81, 73, 0.15); border: 1px solid var(--error); color: #ff7b72; }
+    #result.info { background: rgba(88, 166, 255, 0.1); border: 1px solid var(--accent); color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Crear orden</h1>
+    <p class="sub">API Conekta / Dynamicore</p>
+
+    <div class="card">
+      <form id="form">
+        <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem;">
+          Credenciales para generar el token DynamiCore (HMAC). Si usas token manual, deja ambos vacíos y pégalo abajo.
+        </p>
+        <div class="row">
+          <div>
+            <label for="clientKey">Client Key</label>
+            <input type="text" id="clientKey" name="clientKey" placeholder="Opcional" autocomplete="off" />
+          </div>
+          <div>
+            <label for="secretHash">Secret (hash)</label>
+            <input type="password" id="secretHash" name="secretHash" placeholder="Valor a SHA512" autocomplete="off" />
+          </div>
+        </div>
+        <label for="auth">O bien: token Authorization (HMAC) manual</label>
+        <input type="password" id="auth" name="auth" placeholder="DynamiCore key:timestamp:digest" autocomplete="off" />
+
+        <label for="amount">Monto</label>
+        <input type="number" id="amount" name="amount" step="0.01" value="18" placeholder="18" />
+
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" placeholder="Dante" value="Dante" />
+
+        <div class="row">
+          <div>
+            <label for="phone">Teléfono</label>
+            <input type="text" id="phone" name="phone" placeholder="5512345678" value="5512345678" />
+          </div>
+          <div>
+            <label for="account">Cuenta</label>
+            <input type="text" id="account" name="account" placeholder="95476" value="95476" />
+          </div>
+        </div>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" class="full" placeholder="correo.ejemplo@test.com" value="correo.ejemplo@test.com" />
+
+        <label for="concept">Concepto</label>
+        <input type="text" id="concept" name="concept" placeholder="Deposito" value="Deposito" />
+
+        <button type="submit" id="btn">Enviar orden</button>
+      </form>
+    </div>
+
+    <div id="result" class="card"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const result = document.getElementById("result");
+    const btn = document.getElementById("btn");
+
+    function showResult(msg, type) {
+      result.textContent = msg;
+      result.className = "card show " + (type || "info");
+      result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const clientKey = document.getElementById("clientKey").value.trim();
+      const secretHash = document.getElementById("secretHash").value;
+      const auth = document.getElementById("auth").value.trim();
+      if (!auth && clientKey === "" && secretHash === "") {
+        showResult("Indica Client Key y Secret (hash) para generar el token, o pega el token Authorization (HMAC) manual.", "error");
+        return;
+      }
+
+      btn.disabled = true;
+      showResult("Enviando...", "info");
+
+      const payload = {
+        clientKey,
+        secretHash,
+        auth: auth || undefined,
+        amount: document.getElementById("amount").value,
+        name: document.getElementById("name").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        concept: document.getElementById("concept").value.trim(),
+        account: document.getElementById("account").value.trim(),
+      };
+
+      try {
+        const res = await fetch("/api/orden", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          let body = data.body;
+          try {
+            body = JSON.stringify(JSON.parse(body), null, 2);
+          } catch (_) {}
+          showResult("Status: " + data.status + "\n\n" + body, "success");
+        } else {
+          showResult("Error: " + (data.error || data.body || "Sin detalles"), "error");
+        }
+      } catch (err) {
+        showResult("Error de red: " + err.message + "\n\n¿Está corriendo el servidor? (npm start)", "error");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
