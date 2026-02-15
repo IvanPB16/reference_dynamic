@@ -100,6 +100,46 @@ genereteReferencia/
 
 ---
 
+## Cómo debuguear (que conteste correctamente)
+
+Para ver en consola qué se envía y qué responde la API, arranca el servidor con **modo debug**:
+
+**Windows (PowerShell):**
+```powershell
+$env:DEBUG="1"; npm start
+```
+
+**Windows (CMD):**
+```cmd
+set DEBUG=1
+npm start
+```
+
+**Mac/Linux:**
+```bash
+DEBUG=1 npm start
+```
+
+Con `DEBUG=1` verás en la terminal del servidor:
+
+- **Crear orden:** URL, body enviado, status y tamaño de la respuesta.
+- **Consultar órdenes:**  
+  - La cuenta usada.  
+  - La llamada a list (GET órdenes) y tamaño de la respuesta.  
+  - Cuántos IDs se obtienen (OXXO vs todos) y los primeros IDs.  
+  - Por cada orden: `order_id`, `payment_method.type`, si se considera OXXO y si se añade al resultado.  
+  - Errores de alguna orden (ej. status 4xx) con un trozo del body.  
+  - Total de órdenes OXXO devueltas.
+
+Así puedes comprobar:
+
+1. Si el **list** devuelve datos (y qué estructura tiene).
+2. Si los **order/get** responden 200 o fallan (y por qué).
+3. Si el **channel** o **payment_method.type** se detecta como OXXO.
+4. Si el mensaje de error de la API aparece en consola cuando algo falla.
+
+---
+
 ## Solución de problemas
 
 - **“Error de red”** al enviar: asegúrate de haber ejecutado `npm start` y de abrir `http://localhost:3000`.

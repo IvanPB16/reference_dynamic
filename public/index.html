@@ -27,7 +27,7 @@
       line-height: 1.5;
     }
     .container {
-      max-width: 480px;
+      max-width: 900px;
       margin: 0 auto;
     }
     h1 {
@@ -69,6 +69,24 @@
       outline: none;
       border-color: var(--accent);
     }
+    textarea {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 1rem;
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea::placeholder { color: var(--muted); }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
     .row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -106,12 +124,74 @@
     #result.success { background: rgba(63, 185, 80, 0.15); border: 1px solid var(--success); color: #7ee787; }
     #result.error { background: rgba(248, 81, 73, 0.15); border: 1px solid var(--error); color: #ff7b72; }
     #result.info { background: rgba(88, 166, 255, 0.1); border: 1px solid var(--accent); color: var(--accent); }
+    .section-title { font-size: 1.1rem; margin: 1.5rem 0 0.75rem 0; color: var(--text); }
+    .section-title:first-of-type { margin-top: 0; }
+    button.secondary { background: var(--border); }
+    button.secondary:hover { background: #3d4d66; }
+    .orders-table-wrap { overflow-x: auto; margin-top: 1rem; }
+    table.orders-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    table.orders-table th,
+    table.orders-table td {
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table.orders-table th { color: var(--muted); font-weight: 500; }
+    table.orders-table tr:hover { background: rgba(255,255,255,0.03); }
+    button.btn-sm {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.85rem;
+      margin: 0;
+      width: auto;
+    }
+    .detail-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .detail-overlay.show { display: flex; }
+    .detail-modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-width: 90%;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .detail-modal h3 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
+    .detail-modal .detail-body {
+      padding: 1rem 1.25rem;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+      word-break: break-all;
+    }
+    .detail-modal .detail-close {
+      align-self: flex-end;
+      margin: 0.75rem 1rem 0 0;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.9rem;
+      width: auto;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Crear orden</h1>
+    <h1>Reference Dynamic</h1>
     <p class="sub">API Conekta / Dynamicore</p>
+
+    <h2 class="section-title">Crear orden</h2>
 
     <div class="card">
       <form id="form">
@@ -159,6 +239,37 @@
     </div>
 
     <div id="result" class="card"></div>
+
+    <h2 class="section-title">Consultar órdenes</h2>
+    <div class="card">
+      <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem;">
+        Indica la cuenta (account) y se obtiene la lista de órdenes (GET /private/apps/orders). Mismas credenciales de arriba.
+      </p>
+      <form id="formOrders">
+        <label for="ordersAccount">Cuenta (account)</label>
+        <input type="text" id="ordersAccount" name="account" placeholder="90963" value="90963" />
+
+        <button type="submit" id="btnOrders" class="secondary">Consultar órdenes</button>
+      </form>
+    </div>
+    <div id="resultOrders" class="card" style="display: none;"></div>
+    <div id="ordersTableWrap" class="card orders-table-wrap">
+      <p style="font-size: 0.9rem; color: var(--muted); margin-bottom: 0.75rem;">Tabla de órdenes (tras consultar por cuenta)</p>
+      <table class="orders-table" id="ordersTable">
+        <thead id="ordersTableHead">
+          <tr><th>ID</th><th>Monto</th><th>Estado</th><th>Fecha</th><th>Acción</th></tr>
+        </thead>
+        <tbody id="ordersTableBody"></tbody>
+      </table>
+      <p id="ordersTableEmpty" style="font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; display: none;">Consulta por cuenta para cargar órdenes. Cada fila tendrá un botón «Ver detalle».</p>
+    </div>
+    <div id="detailOverlay" class="detail-overlay">
+      <div class="detail-modal">
+        <button type="button" class="detail-close secondary" id="detailClose">Cerrar</button>
+        <h3 id="detailTitle">Detalle de orden</h3>
+        <pre class="detail-body" id="detailBody"></pre>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -219,6 +330,215 @@
       } finally {
         btn.disabled = false;
       }
+    });
+
+    // Consultar órdenes
+    const formOrders = document.getElementById("formOrders");
+    const resultOrders = document.getElementById("resultOrders");
+    const btnOrders = document.getElementById("btnOrders");
+
+    function showResultOrders(msg, type) {
+      resultOrders.textContent = msg;
+      resultOrders.className = "card show " + (type || "info");
+      resultOrders.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function getOrdersCredentials() {
+      return {
+        clientKey: document.getElementById("clientKey").value.trim(),
+        secretHash: document.getElementById("secretHash").value,
+        auth: document.getElementById("auth").value.trim(),
+      };
+    }
+
+    function findOrdersArray(list) {
+      if (Array.isArray(list)) return list;
+      if (!list || typeof list !== "object") return [];
+      // Claves habituales en la raíz
+      if (Array.isArray(list.data)) return list.data;
+      if (Array.isArray(list.orders)) return list.orders;
+      if (Array.isArray(list.items)) return list.items;
+      if (Array.isArray(list.creditos)) return list.creditos;
+      if (list.result && Array.isArray(list.result)) return list.result;
+      if (list.result && Array.isArray(list.result.orders)) return list.result.orders;
+      // data u otro objeto anidado (data.orders, data.data, data.list)
+      if (list.data && typeof list.data === "object") {
+        if (Array.isArray(list.data.orders)) return list.data.orders;
+        if (Array.isArray(list.data.data)) return list.data.data;
+        if (Array.isArray(list.data.list)) return list.data.list;
+        if (Array.isArray(list.data.items)) return list.data.items;
+        var fromData = findOrdersArray(list.data);
+        if (fromData.length) return fromData;
+      }
+      // message puede ser objeto con la lista o string con JSON
+      if (list.message) {
+        if (typeof list.message === "object") {
+          var fromMsg = findOrdersArray(list.message);
+          if (fromMsg.length) return fromMsg;
+        }
+        if (typeof list.message === "string" && (list.message.trim().startsWith("[") || list.message.trim().startsWith("{"))) {
+          try {
+            var parsed = JSON.parse(list.message);
+            var fromParsed = findOrdersArray(parsed);
+            if (fromParsed.length) return fromParsed;
+          } catch (e) {}
+        }
+      }
+      // Cualquier otra clave cuyo valor sea un array
+      for (var key of Object.keys(list)) {
+        if (Array.isArray(list[key])) return list[key];
+      }
+      return [];
+    }
+
+    function renderOrdersTable(listBody) {
+      let list;
+      try {
+        list = typeof listBody === "string" ? JSON.parse(listBody) : listBody;
+      } catch {
+        showResultOrders("La respuesta no es JSON válido.", "error");
+        document.getElementById("ordersTableEmpty").style.display = "block";
+        document.getElementById("ordersTableBody").innerHTML = "";
+        return;
+      }
+      const arr = findOrdersArray(list);
+      const thead = document.getElementById("ordersTableHead");
+      const tbody = document.getElementById("ordersTableBody");
+      const emptyMsg = document.getElementById("ordersTableEmpty");
+      thead.innerHTML = "<tr><th>ID</th><th>Monto</th><th>Estado</th><th>Fecha</th><th>Acción</th></tr>";
+      tbody.innerHTML = "";
+
+      if (!arr.length) {
+        document.getElementById("ordersTableWrap").style.display = "block";
+        emptyMsg.style.display = "block";
+        emptyMsg.textContent = "No se encontraron órdenes en la respuesta. Estructura recibida: " + Object.keys(list || {}).join(", ") + ". Si tu API devuelve otro formato, la respuesta completa se muestra abajo.";
+        document.getElementById("resultOrders").style.display = "block";
+        document.getElementById("resultOrders").className = "card show info";
+        var preview = typeof listBody === "string" ? listBody : JSON.stringify(listBody, null, 2);
+        if (list && list.message && typeof list.message === "string" && list.message.length > 500) {
+          preview = "Raíz: " + JSON.stringify({ status: list.status, message: "(string de " + list.message.length + " caracteres)" }, null, 2) + "\n\n--- Contenido de message (primeros 2000 chars) ---\n" + list.message.substring(0, 2000);
+        }
+        document.getElementById("resultOrders").textContent = "Status: 200\n\n" + preview.substring(0, 3500);
+        return;
+      }
+
+      emptyMsg.style.display = "none";
+      const first = arr[0];
+      const isObj = typeof first === "object" && first !== null;
+
+      for (const row of arr) {
+        const id = isObj ? (row.id || row.order_id || row.orderId || "-") : String(row);
+        const rawAmount = isObj ? row.amount : null;
+        const amount = rawAmount != null ? (rawAmount >= 1000 ? (rawAmount / 100).toFixed(2) : String(rawAmount)) : "-";
+        const status = isObj ? (row.payment_status || row.status || row.state || "-") : "-";
+        let date = "-";
+        if (isObj && row.created_at) {
+          const ts = row.created_at;
+          const d = ts < 1e12 ? new Date(ts * 1000) : new Date(ts);
+          date = d.toLocaleString();
+        }
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + escapeHtml(String(id)) + "</td>" +
+          "<td>" + escapeHtml(String(amount)) + "</td>" +
+          "<td>" + escapeHtml(String(status)) + "</td>" +
+          "<td>" + escapeHtml(date) + "</td>" +
+          '<td><button type="button" class="btn-sm secondary" data-order-id="' + escapeHtml(String(id)) + '">Ver detalle</button></td>';
+        tbody.appendChild(tr);
+      }
+
+      document.getElementById("resultOrders").style.display = "none";
+      document.getElementById("ordersTableWrap").style.display = "block";
+
+      tbody.querySelectorAll("button[data-order-id]").forEach(function(btn) {
+        btn.addEventListener("click", async function() {
+          const orderId = btn.getAttribute("data-order-id");
+          const cred = getOrdersCredentials();
+          document.getElementById("detailTitle").textContent = "Detalle: " + orderId;
+          document.getElementById("detailBody").textContent = "Cargando...";
+          document.getElementById("detailOverlay").classList.add("show");
+          try {
+            const res = await fetch("/api/order/get", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clientKey: cred.clientKey,
+                secretHash: cred.secretHash,
+                auth: cred.auth || undefined,
+                order_id: orderId,
+              }),
+            });
+            const data = await res.json();
+            let text = "Status: " + data.status + "\n\n";
+            if (data.ok && data.body) {
+              try {
+                text += JSON.stringify(JSON.parse(data.body), null, 2);
+              } catch (_) {
+                text += data.body;
+              }
+            } else {
+              text += data.error || data.body || "Sin detalles";
+            }
+            document.getElementById("detailBody").textContent = text;
+          } catch (err) {
+            document.getElementById("detailBody").textContent = "Error: " + err.message;
+          }
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    formOrders.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const clientKey = document.getElementById("clientKey").value.trim();
+      const secretHash = document.getElementById("secretHash").value;
+      const auth = document.getElementById("auth").value.trim();
+      const account = document.getElementById("ordersAccount").value.trim() || "90963";
+      if (!auth && clientKey === "" && secretHash === "") {
+        showResultOrders("Indica Client Key y Secret (hash) o token HMAC en la sección «Crear orden» arriba.", "error");
+        return;
+      }
+
+      btnOrders.disabled = true;
+      showResultOrders("Consultando...", "info");
+      document.getElementById("ordersTableWrap").style.display = "none";
+
+      try {
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientKey, secretHash, auth: auth || undefined, account }),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          renderOrdersTable(data.body);
+          if (document.getElementById("ordersTableWrap").style.display !== "block") {
+            showResultOrders("Status: " + data.status + "\n\n" + (typeof data.body === "string" ? data.body : JSON.stringify(data.body, null, 2)).substring(0, 2000), "success");
+            document.getElementById("resultOrders").style.display = "block";
+          }
+        } else {
+          showResultOrders("Error: " + (data.error || data.body || "Sin detalles"), "error");
+          document.getElementById("resultOrders").style.display = "block";
+        }
+      } catch (err) {
+        showResultOrders("Error de red: " + err.message + "\n\n¿Está corriendo el servidor? (npm start)", "error");
+        document.getElementById("resultOrders").style.display = "block";
+      } finally {
+        btnOrders.disabled = false;
+      }
+    });
+
+    document.getElementById("detailClose").addEventListener("click", () => {
+      document.getElementById("detailOverlay").classList.remove("show");
+    });
+    document.getElementById("detailOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "detailOverlay") document.getElementById("detailOverlay").classList.remove("show");
     });
   </script>
 </body>
